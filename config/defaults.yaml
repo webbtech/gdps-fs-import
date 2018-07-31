@@ -1,0 +1,8 @@
+AWSRegion: "ca-central-1"
+DBUser: ""
+DBPassword: ""
+DBHost: 10.0.1.9
+DBName: ""
+S3Bucket: ""
+SsmPath: "gales-dips2"
+Stage: "prod"

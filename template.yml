@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion : '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Gales Fuel Sales Export Service
+
+Parameters:
+  IAMUsername:
+    Description: Name of the IAM user who will be the administrator of the KMS key
+      we create. This user will be able to encrypt values and manage the key.
+    Type: String
+    Default: sysadmin
+
+Resources:
+  #Functions
+  ExportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: go1.x
+      CodeUri: ./dist
+      Handler: /export
+      Environment:
+        Variables:
+          Stage: prod
+      Events:
+        Create:
+          Type: Api
+          Properties:
+            Path: /export
+            Method: post
