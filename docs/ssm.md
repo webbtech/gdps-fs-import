@@ -6,8 +6,8 @@ Start with the KMS key
 ``` bash
 $ aws kms create-key --profile default --description "Pulpfree test key"
 
-$ aws kms create-alias --alias-name alias/testPulpfree --target-key-id 21f6cc7e-6330-4809-995b-82d713dec9e8
-# target-key is KeyId from above return
+$ aws kms create-alias --alias-name alias/testPulpfree --target-key-id <key-id here>
+# target-key-id is KeyId from above return
 
 # $ aws ssm put-parameter --name /test/gales-dips2/S3Bucket \
 #   --value ca-gales --type String
