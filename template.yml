@@ -18,6 +18,15 @@ Resources:
       Runtime: go1.x
       CodeUri: ./dist
       Handler: /export
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-5afb2932
+          - sg-8f6baee7
+        SubnetIds:
+          - subnet-0da8d176
+          - subnet-7f092816
+      Timeout: 20
       Environment:
         Variables:
           Stage: prod
@@ -27,3 +36,73 @@ Resources:
           Properties:
             Path: /export
             Method: post
+        Ping:
+          Type: Api
+          Properties:
+            Path: /export
+            Method: get
+      Tags:
+        BillTo: 'Gales'
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:*
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - dynamodb:DeleteItem
+            - dynamodb:DescribeStream
+            - dynamodb:GetItem
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+            - dynamodb:PutItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            Resource: "arn:aws:dynamodb:ca-central-1:407205661819:table/GDS_*"
+      - PolicyName: FunctionLambdaVPCAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ec2:CreateNetworkInterface
+            - ec2:DeleteNetworkInterface
+            - ec2:DescribeNetworkInterfaces
+            Resource: '*'
+      - PolicyName: FunctionParameterAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:GetParameter*
+            Resource:
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/gales-dips2*
+      - PolicyName: FunctionXRayAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - xray:PutTraceSegments
+            - xray:PutTelemetryRecords
+            Resource: '*'

@@ -1,8 +1,15 @@
 AWSRegion: "ca-central-1"
-DBUser: ""
-DBPassword: ""
-DBHost: 10.0.1.9
-DBName: ""
+CognitoClientID: "clientIDabc123"
+CognitoPoolID: ""
+CognitoRegion: ""
+MongoDBUser: ""
+MongoDBPassword: ""
+MongoDBHost: 10.0.1.9
+MongoDBName: ""
 S3Bucket: ""
 SsmPath: "gales-dips2"
 Stage: "prod"
+Dynamo:
+  APIVersion: "2012-08-10"
+  Region: "ca-central-1"
+  Endpoint: "https://dynamodb.ca-central-1.amazonaws.com"

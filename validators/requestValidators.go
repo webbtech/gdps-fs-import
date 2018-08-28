@@ -32,14 +32,11 @@ func Date(dateInput string) (time.Time, error) {
 
 // Fuel function
 func Fuel(exportInput string) (model.ExportType, error) {
-
 	switch exportInput {
 	case "fuel":
 		return model.FuelType, nil
-
 	case "propane":
 		return model.PropaneType, nil
-
 	default:
 		return "", errors.New("Invalid export type provided")
 	}
@@ -49,16 +46,16 @@ func Fuel(exportInput string) (model.ExportType, error) {
 func RequestVars(r *model.RequestInput) (res *model.Request, err error) {
 
 	res = new(model.Request)
-
-	res.StartDate, err = Date(r.StartDate)
-	if err != nil {
-		return res, err
-	}
-	res.EndDate, err = Date(r.EndDate)
-	if err != nil {
-		return res, err
-	}
 	res.ExportType, err = Fuel(r.ExportType)
+	if err != nil {
+		return res, err
+	}
+
+	res.DateStart, err = Date(r.DateStart)
+	if err != nil {
+		return res, err
+	}
+	res.DateEnd, err = Date(r.DateEnd)
 	if err != nil {
 		return res, err
 	}
