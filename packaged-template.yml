@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Gales Fuel Sales Export Service
+Parameters:
+  IAMUsername:
+    Default: sysadmin
+    Description: Name of the IAM user who will be the administrator of the KMS key
+      we create. This user will be able to encrypt values and manage the key.
+    Type: String
+Resources:
+  ExportFunction:
+    Properties:
+      CodeUri: s3://gales-fuelsale-export/lambda/d1eb86343b34f2d701eb2b413402acd5
+      Environment:
+        Variables:
+          Stage: prod
+      Events:
+        Create:
+          Properties:
+            Method: post
+            Path: /export
+          Type: Api
+        Ping:
+          Properties:
+            Method: get
+            Path: /export
+          Type: Api
+      Handler: /export
+      Role:
+        Fn::GetAtt:
+        - LambdaExecutionRole
+        - Arn
+      Runtime: go1.x
+      Tags:
+        BillTo: Gales
+      Timeout: 20
+      VpcConfig:
+        SecurityGroupIds:
+        - sg-5afb2932
+        - sg-8f6baee7
+        SubnetIds:
+        - subnet-0da8d176
+        - subnet-7f092816
+    Type: AWS::Serverless::Function
+  LambdaExecutionRole:
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action:
+          - sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+        Version: '2012-10-17'
+      Path: /
+      Policies:
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - logs:*
+            Effect: Allow
+            Resource: arn:aws:logs:*:*:*
+          - Action:
+            - dynamodb:DeleteItem
+            - dynamodb:DescribeStream
+            - dynamodb:GetItem
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+            - dynamodb:PutItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            Effect: Allow
+            Resource: arn:aws:dynamodb:ca-central-1:407205661819:table/GDS_*
+          Version: '2012-10-17'
+        PolicyName: root
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - ec2:CreateNetworkInterface
+            - ec2:DeleteNetworkInterface
+            - ec2:DescribeNetworkInterfaces
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName: FunctionLambdaVPCAccess
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - ssm:GetParameter*
+            Effect: Allow
+            Resource:
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/gales-dips2*
+          Version: '2012-10-17'
+        PolicyName: FunctionParameterAccess
+      - PolicyDocument:
+          Statement:
+          - Action:
+            - xray:PutTraceSegments
+            - xray:PutTelemetryRecords
+            Effect: Allow
+            Resource: '*'
+          Version: '2012-10-17'
+        PolicyName: FunctionXRayAccess
+    Type: AWS::IAM::Role
+Transform: AWS::Serverless-2016-10-31

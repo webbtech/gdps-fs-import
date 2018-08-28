@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -24,21 +23,34 @@ type Config struct {
 
 // defaults struct
 type defaults struct {
-	AWSRegion  string `yaml:"AWSRegion"`
-	DBHost     string `yaml:"DBHost"`
-	DBName     string `yaml:"DBName"`
-	DBPassword string `yaml:"DBPassword"`
-	DBUser     string `yaml:"DBUser"`
-	// S3Bucket   string `yaml:"S3Bucket"`
-	SsmPath string `yaml:"SsmPath"`
-	Stage   string `yaml:"Stage"`
+	AWSRegion       string  `yaml:"AWSRegion"`
+	CognitoClientID string  `yaml:"CognitoClientID"`
+	CognitoPoolID   string  `yaml:"CognitoPoolID"`
+	CognitoRegion   string  `yaml:"CognitoRegion"`
+	Dynamo          *Dynamo `yaml:"Dynamo"`
+	MongoDBHost     string  `yaml:"MongoDBHost"`
+	MongoDBName     string  `yaml:"MongoDBName"`
+	MongoDBPassword string  `yaml:"MongoDBPassword"`
+	MongoDBUser     string  `yaml:"MongoDBUser"`
+	SsmPath         string  `yaml:"SsmPath"`
+	Stage           string  `yaml:"Stage"`
 }
 
 type config struct {
-	AWSRegion    string
-	DBConnectURL string
-	// S3Bucket     string
-	Stage StageEnvironment
+	AWSRegion         string
+	CognitoClientID   string
+	CognitoPoolID     string
+	CognitoRegion     string
+	Dynamo            *Dynamo
+	MongoDBConnectURL string
+	Stage             StageEnvironment
+}
+
+// Dynamo struct
+type Dynamo struct {
+	APIVersion string `yaml:"APIVersion"`
+	Endpoint   string `yaml:"Endpoint"`
+	Region     string `yaml:"Region"`
 }
 
 // StageEnvironment string
@@ -89,7 +101,7 @@ func (c *Config) GetStageEnv() StageEnvironment {
 
 // GetMongoConnectURL method
 func (c *Config) GetMongoConnectURL() string {
-	return c.DBConnectURL
+	return c.MongoDBConnectURL
 }
 
 // this must be called first in c.Load
@@ -200,7 +212,6 @@ func (c *Config) setSSMParams() (err error) {
 			structKey.Set(reflect.ValueOf(*r.Value))
 		}
 	}
-
 	return err
 }
 
@@ -209,19 +220,19 @@ func (c *Config) setDBConnectURL() *Config {
 
 	var db, userPass, authSource string
 
-	if defs.DBName != "" {
-		db = "/" + defs.DBName
+	if defs.MongoDBName != "" {
+		db = "/" + defs.MongoDBName
 	}
 
-	if defs.DBUser != "" && defs.DBPassword != "" {
-		userPass = defs.DBUser + ":" + defs.DBPassword + "@"
+	if defs.MongoDBUser != "" && defs.MongoDBPassword != "" {
+		userPass = defs.MongoDBUser + ":" + defs.MongoDBPassword + "@"
 	}
 
 	if userPass != "" {
 		authSource = "?authSource=admin"
 	}
 
-	c.DBConnectURL = "mongodb://" + userPass + defs.DBHost + db + authSource
+	c.MongoDBConnectURL = "mongodb://" + userPass + defs.MongoDBHost + db + authSource
 
 	return c
 }
@@ -230,7 +241,10 @@ func (c *Config) setDBConnectURL() *Config {
 func (c *Config) setFinal() (err error) {
 
 	c.AWSRegion = defs.AWSRegion
-	// c.S3Bucket = defs.S3Bucket
+	c.CognitoClientID = defs.CognitoClientID
+	c.CognitoPoolID = defs.CognitoPoolID
+	c.CognitoRegion = defs.CognitoRegion
+	c.Dynamo = defs.Dynamo
 	err = c.validateStage()
 
 	return err
