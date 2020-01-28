@@ -23,7 +23,7 @@ func Date(dateInput string) (time.Time, error) {
 
 	// Ensure date is not future dated
 	today := time.Now()
-	if today.Year() < date.Year() || today.YearDay() < date.YearDay() {
+	if today.Unix() < date.Unix() {
 		return date, errors.New("Invalid date. Date cannot be future, must be less than current date")
 	}
 

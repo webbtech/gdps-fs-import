@@ -48,7 +48,7 @@ $ aws ssm put-parameter --name /prod/gales-dips2/MongoDBName \
   --value gales-sales --type String
 
 $ aws ssm put-parameter --name /prod/gales-dips2/MongoDBHost \
-  --value gales.mongo --type String
+  --value ca-central-1a.mongo,ca-central-1b.mongo --type String --overwrite
 
 $ aws ssm put-parameter --name /prod/gales-dips2/MongoDBPassword \
   --value "<secret-password>" --type SecureString \

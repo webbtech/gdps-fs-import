@@ -25,7 +25,7 @@ awsPackage:
    --template-file template.yml \
    --output-template-file packaged-template.yml \
    --s3-bucket $(AWS_BUCKET_NAME) \
-   --s3-prefix lambda \
+   --s3-prefix $(AWS_BUCKET_PREFIX) \
    --profile $(AWS_PROFILE)
 
 awsDeploy:

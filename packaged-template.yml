@@ -9,7 +9,7 @@ Parameters:
 Resources:
   ExportFunction:
     Properties:
-      CodeUri: s3://gales-fuelsale-export/lambda/d1eb86343b34f2d701eb2b413402acd5
+      CodeUri: s3://ca-gales/gales-fuelsale-export-lambda/29a6d71c3a69df8992632006960fd120
       Environment:
         Variables:
           Stage: prod

@@ -75,13 +75,14 @@ func handleRequest(ctx context.Context, req events.APIGatewayProxyRequest) (even
 		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 500}, nil
 	}
 
-	// Intitialze and process request
+	// Initialize and process request
 	exporter := export.New(reqVars, cfg)
 	res, err := exporter.Process()
 	if err != nil {
 		eRes = setErrorResponse(500, "ProcessExport", err.Error())
 		return events.APIGatewayProxyResponse{Body: err.Error(), StatusCode: 500}, nil
 	}
+	log.Infof("res in exporter.Process(): %+v\n", res)
 
 	body, err := json.Marshal(&res)
 	if err != nil {

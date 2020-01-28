@@ -177,6 +177,8 @@ func (db *DB) fetchFuelSales(req *model.Request) (ss []*model.StationSales, err 
 	pipe := col.Pipe([]bson.M{match, group, project, sort})
 	pipe.All(&ss)
 
+	// log.Infof("ss[0] in fetchFuelSales: %+v\n", ss[0])
+
 	return ss, err
 }
 
