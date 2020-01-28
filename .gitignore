@@ -15,3 +15,5 @@
 
 .env
 dist/
+
+docs/ssm.md
