@@ -4,10 +4,10 @@ CognitoPoolID: ""
 CognitoRegion: ""
 MongoDBUser: ""
 MongoDBPassword: ""
-MongoDBHost: 10.0.1.9
-MongoDBName: ""
+MongoDBHost: 192.168.86.137
+MongoDBName: "gales-sales"
 S3Bucket: ""
-SsmPath: "gales-dips2"
+SsmPath: "gsales-fs-export"
 Stage: "prod"
 Dynamo:
   APIVersion: "2012-08-10"

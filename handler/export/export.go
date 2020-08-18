@@ -8,11 +8,11 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/pulpfree/gales-fuelsale-export/auth"
-	"github.com/pulpfree/gales-fuelsale-export/config"
-	"github.com/pulpfree/gales-fuelsale-export/export"
-	"github.com/pulpfree/gales-fuelsale-export/model"
-	"github.com/pulpfree/gales-fuelsale-export/validators"
+	"github.com/pulpfree/gsales-fs-export/auth"
+	"github.com/pulpfree/gsales-fs-export/config"
+	"github.com/pulpfree/gsales-fs-export/export"
+	"github.com/pulpfree/gsales-fs-export/model"
+	"github.com/pulpfree/gsales-fs-export/validators"
 )
 
 var cfg *config.Config

@@ -3,7 +3,12 @@ package base64
 import (
 	"encoding/base64"
 	"encoding/binary"
+	"strings"
 )
+
+func EncodeToStringStd(src []byte) string {
+	return base64.RawStdEncoding.EncodeToString(src)
+}
 
 func EncodeToString(src []byte) string {
 	return base64.RawURLEncoding.EncodeToString(src)
@@ -24,5 +29,16 @@ func EncodeUint64ToString(v uint64) string {
 }
 
 func DecodeString(src string) ([]byte, error) {
-	return base64.RawURLEncoding.DecodeString(src)
+	var isRaw = !strings.HasSuffix(src, "=")
+	if strings.ContainsAny(src, "+/") {
+		if isRaw {
+			return base64.RawStdEncoding.DecodeString(src)
+		}
+		return base64.StdEncoding.DecodeString(src)
+	}
+
+	if isRaw {
+		return base64.RawURLEncoding.DecodeString(src)
+	}
+	return base64.URLEncoding.DecodeString(src)
 }

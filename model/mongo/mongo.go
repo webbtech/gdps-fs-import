@@ -1,25 +1,34 @@
 package mongo
 
 import (
-	"strconv"
+	"context"
+	"log"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
-	"github.com/globalsign/mgo"
-	"github.com/globalsign/mgo/bson"
-	"github.com/pulpfree/gales-fuelsale-export/config"
-	"github.com/pulpfree/gales-fuelsale-export/model"
+	"github.com/pulpfree/gsales-fs-export/config"
+	"github.com/pulpfree/gsales-fs-export/model"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // DB struct
-type DB struct {
+/* type DB struct {
 	session *mgo.Session
+} */
+
+// MDB struct
+type MDB struct {
+	client *mongo.Client
+	// cfg    *model.Config
+	dbName string
+	db     *mongo.Database
 }
 
-// DB Constants
+// DB and collections Constants
 const (
-	DBSales         = "gales-sales"
+	// DBSales         = "gales-sales"
 	colFuelSales    = "fuel-sales"
 	colFSImport     = "fuel-sales-import"
 	colFSExport     = "fuel-sales-export"
@@ -37,20 +46,36 @@ const (
 // ==================== Exported methods ==================== //
 
 // NewDB connection function
-func NewDB(connection string) (*DB, error) {
+func NewDB(connection string, dbNm string) (*MDB, error) {
 
-	s, err := mgo.Dial(connection)
+	clientOptions := options.Client().ApplyURI(connection)
+	err := clientOptions.Validate()
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
 
-	return &DB{
-		session: s,
+	// Connect to MongoDB
+	client, err := mongo.Connect(context.Background(), clientOptions)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// Check the connection
+	err = client.Ping(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Connected to MongoDB!")
+
+	return &MDB{
+		client: client,
+		dbName: dbNm,
+		db:     client.Database(dbNm),
 	}, err
 }
 
 // CreateFuelSales function
-func (db *DB) CreateFuelSales(req *model.Request) (err error) {
+/* func (db *DB) CreateFuelSales(req *model.Request) (err error) {
 
 	sales, err := db.fetchFuelSales(req)
 	if err != nil {
@@ -78,10 +103,10 @@ func (db *DB) CreateFuelSales(req *model.Request) (err error) {
 	}
 
 	return err
-}
+} */
 
 // CreatePropaneSales function
-func (db *DB) CreatePropaneSales(req *model.Request) (err error) {
+/* func (db *DB) CreatePropaneSales(req *model.Request) (err error) {
 
 	sales, err := db.fetchPropaneSales(req)
 	if err != nil {
@@ -99,10 +124,10 @@ func (db *DB) CreatePropaneSales(req *model.Request) (err error) {
 	}
 
 	return err
-}
+} */
 
 // FetchExportedFuelSales method
-func (db *DB) FetchExportedFuelSales(req *model.Request) (res []*model.FuelSalesExport, err error) {
+/* func (db *DB) FetchExportedFuelSales(req *model.Request) (res []*model.FuelSalesExport, err error) {
 
 	s := db.getFreshSession()
 	defer s.Close()
@@ -114,10 +139,10 @@ func (db *DB) FetchExportedFuelSales(req *model.Request) (res []*model.FuelSales
 	col.Find(bson.M{"recordDate": bson.M{"$gte": stDte, "$lte": enDte}}).All(&res)
 
 	return res, err
-}
+} */
 
 // FetchExportedPropaneSales method
-func (db *DB) FetchExportedPropaneSales(req *model.Request) (res []*model.PropaneSaleExport, err error) {
+/* func (db *DB) FetchExportedPropaneSales(req *model.Request) (res []*model.PropaneSaleExport, err error) {
 
 	s := db.getFreshSession()
 	defer s.Close()
@@ -129,20 +154,190 @@ func (db *DB) FetchExportedPropaneSales(req *model.Request) (res []*model.Propan
 	col.Find(bson.M{"recordDate": bson.M{"$gte": stDte, "$lte": enDte}}).All(&res)
 
 	return res, err
-}
+} */
 
 // ==================== FuelSales methods ==================== //
 
-func (db *DB) fetchFuelSales(req *model.Request) (ss []*model.StationSales, err error) {
+func (db *MDB) fetchFuelSales(req *model.Request) (docs []model.StationSales, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
+	col := db.db.Collection(colSales)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 
-	col := s.DB(DBSales).C(colSales)
-	match := bson.M{
-		"$match": bson.M{"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd}},
+	pipeline := mongo.Pipeline{
+		{
+			primitive.E{
+				Key: "$match",
+				Value: bson.D{
+					primitive.E{
+						Key: "recordDate",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$gte",
+								Value: req.DateStart,
+							},
+							primitive.E{
+								Key:   "$lte",
+								Value: req.DateEnd,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$group",
+				Value: bson.D{
+					primitive.E{
+						Key: "_id",
+						Value: bson.D{
+							primitive.E{
+								Key:   "recordDate",
+								Value: "$recordDate",
+							},
+							primitive.E{
+								Key:   "stationID",
+								Value: "$stationID",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel1",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_1.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel2",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_2.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel3",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_3.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel4",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_4.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel5",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_5.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuel6",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$salesSummary.fuel.fuel_6.litre",
+							},
+						},
+					},
+					primitive.E{
+						Key: "fuelCosts",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$last",
+								Value: "$fuelCosts",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$project",
+				Value: bson.D{
+					primitive.E{
+						Key:   "recordDate",
+						Value: "$_id.recordDate",
+					},
+					primitive.E{
+						Key:   "stationID",
+						Value: "$_id.stationID",
+					},
+					primitive.E{
+						Key:   "fuel1",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuel2",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuel3",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuel4",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuel5",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuel6",
+						Value: 1,
+					},
+					primitive.E{
+						Key:   "fuelCosts",
+						Value: 1,
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$sort",
+				Value: bson.D{
+					primitive.E{
+						Key:   "_id.recordDate",
+						Value: 1,
+					},
+				},
+			},
+		},
 	}
 
+	cur, err := col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+
+	/**
+	 match := bson.M{
+		"$match": bson.M{"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd}},
+	}
 	group := bson.M{
 		"$group": bson.M{
 			"_id":       bson.M{"recordDate": "$recordDate", "stationID": "$stationID"},
@@ -173,16 +368,12 @@ func (db *DB) fetchFuelSales(req *model.Request) (ss []*model.StationSales, err 
 	sort := bson.M{
 		"$sort": bson.M{"_id.recordDate": 1},
 	}
+	*/
 
-	pipe := col.Pipe([]bson.M{match, group, project, sort})
-	pipe.All(&ss)
-
-	// log.Infof("ss[0] in fetchFuelSales: %+v\n", ss[0])
-
-	return ss, err
+	return docs, err
 }
 
-func (db *DB) persistFuelSales(ss []*model.StationSales) (ts int64, err error) {
+/* func (db *DB) persistFuelSales(ss []*model.StationSales) (ts int64, err error) {
 
 	s := db.getFreshSession()
 	defer s.Close()
@@ -310,48 +501,149 @@ func (db *DB) removeImportedFuelSales() (err error) {
 	// fmt.Printf("RemoveAll info: %+v\n", info.Removed)
 
 	return err
-}
+} */
 
 // ==================== Propane methods ==================================== //
 
-func (db *DB) fetchPropaneSales(req *model.Request) (ps []*model.PropaneSale, err error) {
+func (db *MDB) fetchPropaneSales(req *model.Request) (docs []model.PropaneSale, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
+	col := db.db.Collection(colFuelSales)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 
-	col := s.DB(DBSales).C(colFuelSales)
+	propStationID, _ := primitive.ObjectIDFromHex(config.PropaneStationID)
 
-	match := bson.M{
-		"$match": bson.M{
-			"stationID":  bson.ObjectIdHex(config.PropaneStationID),
-			"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd},
-			"gradeID":    config.PropaneGradeID,
+	pipeline := mongo.Pipeline{
+		{
+			primitive.E{
+				Key: "$match",
+				Value: bson.D{
+					primitive.E{
+						Key:   "stationID",
+						Value: propStationID,
+					},
+					primitive.E{
+						Key: "recordDate",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$gte",
+								Value: req.DateStart,
+							},
+							primitive.E{
+								Key:   "$lte",
+								Value: req.DateEnd,
+							},
+						},
+					},
+					primitive.E{
+						Key:   "gradeID",
+						Value: config.PropaneGradeID,
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$group",
+				Value: bson.D{
+					primitive.E{
+						Key: "_id",
+						Value: bson.D{
+							primitive.E{
+								Key:   "recordDate",
+								Value: "$recordDate",
+							},
+							primitive.E{
+								Key:   "dispenserID",
+								Value: "$dispenserID",
+							},
+						},
+					},
+					primitive.E{
+						Key: "litres",
+						Value: bson.D{
+							primitive.E{
+								Key:   "$sum",
+								Value: "$litres.net",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$project",
+				Value: bson.D{
+					primitive.E{
+						Key:   "recordDate",
+						Value: "$_id.recordDate",
+					},
+					primitive.E{
+						Key:   "dispenserID",
+						Value: "$_id.dispenserID",
+					},
+					primitive.E{
+						Key:   "litres",
+						Value: 1,
+					},
+				},
+			},
+		},
+		{
+			primitive.E{
+				Key: "$sort",
+				Value: bson.D{
+					primitive.E{
+						Key:   "_id.recordDate",
+						Value: 1,
+					},
+				},
+			},
 		},
 	}
 
-	sort := bson.M{"$sort": bson.M{"recordDate": -1}}
+	cur, err := col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
 
-	group := bson.M{
-		"$group": bson.M{
-			"_id":    bson.M{"recordDate": "$recordDate", "dispenserID": "$dispenserID"},
-			"litres": bson.M{"$sum": "$litres.net"},
-		},
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
 	}
 
-	project := bson.M{
-		"$project": bson.M{
-			"recordDate":  "$_id.recordDate",
-			"dispenserID": "$_id.dispenserID",
-			"litres":      1,
-		},
-	}
+	/*
+		col := s.DB(DBSales).C(colFuelSales)
+		match := bson.M{
+			"$match": bson.M{
+				"stationID":  bson.ObjectIdHex(config.PropaneStationID),
+				"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd},
+				"gradeID":    config.PropaneGradeID,
+			},
+		}
+		sort := bson.M{"$sort": bson.M{"recordDate": -1}}
+		group := bson.M{
+			"$group": bson.M{
+				"_id":    bson.M{"recordDate": "$recordDate", "dispenserID": "$dispenserID"},
+				"litres": bson.M{"$sum": "$litres.net"},
+			},
+		}
 
-	pipe := col.Pipe([]bson.M{match, sort, group, project})
-	pipe.All(&ps)
-	return ps, err
+		project := bson.M{
+			"$project": bson.M{
+				"recordDate":  "$_id.recordDate",
+				"dispenserID": "$_id.dispenserID",
+				"litres":      1,
+			},
+		}
+
+		pipe := col.Pipe([]bson.M{match, sort, group, project})
+		pipe.All(&docs) */
+	return docs, err
 }
 
-func (db *DB) persistPropaneSales(ps []*model.PropaneSale) (ts int64, err error) {
+/* func (db *DB) persistPropaneSales(ps []*model.PropaneSale) (ts int64, err error) {
 
 	s := db.getFreshSession()
 	defer s.Close()
@@ -373,11 +665,11 @@ func (db *DB) persistPropaneSales(ps []*model.PropaneSale) (ts int64, err error)
 	}
 
 	return ts, err
-}
+} */
 
 // ==================== Fuel & Propane methods ============================= //
 
-func (db *DB) fetchStationNodes() (nodes []*model.StationNodes, err error) {
+/* func (db *DB) fetchStationNodes() (nodes []*model.StationNodes, err error) {
 
 	s := db.getFreshSession()
 	defer s.Close()
@@ -406,15 +698,15 @@ func (db *DB) createImportLog(req *model.Request, ts int64) (err error) {
 	err = col.Insert(ilog)
 
 	return err
-}
+} */
 
 // ==================== DB Helper methods ==================== //
 
 // Close method
-func (db *DB) Close() {
+/* func (db *DB) Close() {
 	db.session.Close()
 }
 
 func (db *DB) getFreshSession() *mgo.Session {
 	return db.session.Copy()
-}
+} */

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pulpfree/gales-fuelsale-export/model"
+	"github.com/pulpfree/gsales-fs-export/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +39,7 @@ func TestValidExportType(t *testing.T) {
 
 	var et model.ExportType
 
-	tp, err := Fuel("fuelSales")
+	tp, err := Fuel("fuel")
 	assert.NoError(t, err)
 	assert.IsType(t, et, tp)
 }
@@ -56,9 +56,9 @@ func TestInValidExportType(t *testing.T) {
 func TestValidRequest(t *testing.T) {
 
 	testVars := &model.RequestInput{
-		StartDate:  "2018-01-01",
-		EndDate:    "2018-02-28",
-		ExportType: "fuelSales",
+		DateStart:  "2018-01-01",
+		DateEnd:    "2018-02-28",
+		ExportType: "fuel",
 	}
 
 	res, err := RequestVars(testVars)

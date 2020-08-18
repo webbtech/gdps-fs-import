@@ -12,7 +12,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: go1.x
-      CodeUri: s3://ca-gales/gales-fuelsale-export-lambda/74fc09462d291fb14d2a586ecc4cb278
+      CodeUri: s3://ca-gales/gsales-fs-export-lambda/74fc09462d291fb14d2a586ecc4cb278
       Handler: /export
       Role:
         Fn::GetAtt:

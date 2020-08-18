@@ -6,9 +6,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pulpfree/gales-fuelsale-export/model"
-	"github.com/pulpfree/gales-fuelsale-export/model/dynamo"
-	"github.com/pulpfree/gales-fuelsale-export/model/mongo"
+	"github.com/pulpfree/gsales-fs-export/model"
+	"github.com/pulpfree/gsales-fs-export/model/dynamo"
+	"github.com/pulpfree/gsales-fs-export/model/mongo"
 )
 
 func (e *Exporter) fuel() (res *model.DnImportRes, err error) {
