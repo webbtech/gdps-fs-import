@@ -2,8 +2,11 @@ package mongo
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/pulpfree/gsales-fs-export/config"
 	"github.com/pulpfree/gsales-fs-export/model"
@@ -13,22 +16,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// DB struct
-/* type DB struct {
-	session *mgo.Session
-} */
-
 // MDB struct
 type MDB struct {
 	client *mongo.Client
-	// cfg    *model.Config
 	dbName string
 	db     *mongo.Database
 }
 
 // DB and collections Constants
 const (
-	// DBSales         = "gales-sales"
 	colFuelSales    = "fuel-sales"
 	colFSImport     = "fuel-sales-import"
 	colFSExport     = "fuel-sales-export"
@@ -55,12 +51,14 @@ func NewDB(connection string, dbNm string) (*MDB, error) {
 	}
 
 	// Connect to MongoDB
-	client, err := mongo.Connect(context.Background(), clientOptions)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
 	// Check the connection
-	err = client.Ping(context.Background(), nil)
+	err = client.Ping(ctx, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -75,7 +73,7 @@ func NewDB(connection string, dbNm string) (*MDB, error) {
 }
 
 // CreateFuelSales function
-/* func (db *DB) CreateFuelSales(req *model.Request) (err error) {
+func (db *MDB) CreateFuelSales(req *model.Request) (err error) {
 
 	sales, err := db.fetchFuelSales(req)
 	if err != nil {
@@ -87,7 +85,7 @@ func NewDB(connection string, dbNm string) (*MDB, error) {
 		return err
 	}
 
-	err = db.createImportLog(req, ts)
+	_, err = db.createImportLog(req, ts)
 	if err != nil {
 		return err
 	}
@@ -97,16 +95,16 @@ func NewDB(connection string, dbNm string) (*MDB, error) {
 		return err
 	}
 
-	err = db.removeImportedFuelSales()
+	_, err = db.removeImportedFuelSales()
 	if err != nil {
 		return err
 	}
 
 	return err
-} */
+}
 
 // CreatePropaneSales function
-/* func (db *DB) CreatePropaneSales(req *model.Request) (err error) {
+func (db *MDB) CreatePropaneSales(req *model.Request) (err error) {
 
 	sales, err := db.fetchPropaneSales(req)
 	if err != nil {
@@ -118,43 +116,90 @@ func NewDB(connection string, dbNm string) (*MDB, error) {
 		return err
 	}
 
-	err = db.createImportLog(req, ts)
+	_, err = db.createImportLog(req, ts)
 	if err != nil {
 		return err
 	}
 
 	return err
-} */
+}
 
 // FetchExportedFuelSales method
-/* func (db *DB) FetchExportedFuelSales(req *model.Request) (res []*model.FuelSalesExport, err error) {
-
-	s := db.getFreshSession()
-	defer s.Close()
+func (db *MDB) FetchExportedFuelSales(req *model.Request) (docs []*model.FuelSalesExport, err error) {
 
 	// fetch previously exported records by date range
-	col := s.DB(DBSales).C(colFSExport)
+	col := db.db.Collection(colFSExport)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	stDte, _ := strconv.Atoi(req.DateStart.Format(timeShortForm))
 	enDte, _ := strconv.Atoi(req.DateEnd.Format(timeShortForm))
-	col.Find(bson.M{"recordDate": bson.M{"$gte": stDte, "$lte": enDte}}).All(&res)
 
-	return res, err
-} */
+	filter := bson.D{
+		primitive.E{
+			Key: "recordDate",
+			Value: bson.D{
+				primitive.E{
+					Key:   "$gte",
+					Value: stDte,
+				},
+				primitive.E{
+					Key:   "$lte",
+					Value: enDte,
+				},
+			},
+		},
+	}
+	cur, err := col.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+	return docs, err
+}
 
 // FetchExportedPropaneSales method
-/* func (db *DB) FetchExportedPropaneSales(req *model.Request) (res []*model.PropaneSaleExport, err error) {
-
-	s := db.getFreshSession()
-	defer s.Close()
+func (db *MDB) FetchExportedPropaneSales(req *model.Request) (docs []*model.PropaneSaleExport, err error) {
 
 	// fetch previously exported records by date range
-	col := s.DB(DBSales).C(colPSExport)
+	col := db.db.Collection(colPSExport)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
 	stDte, _ := strconv.Atoi(req.DateStart.Format(timeShortForm))
 	enDte, _ := strconv.Atoi(req.DateEnd.Format(timeShortForm))
-	col.Find(bson.M{"recordDate": bson.M{"$gte": stDte, "$lte": enDte}}).All(&res)
 
-	return res, err
-} */
+	filter := bson.D{
+		primitive.E{
+			Key: "recordDate",
+			Value: bson.D{
+				primitive.E{
+					Key:   "$gte",
+					Value: stDte,
+				},
+				primitive.E{
+					Key:   "$lte",
+					Value: enDte,
+				},
+			},
+		},
+	}
+	cur, err := col.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	if err := cur.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+
+	return docs, err
+}
 
 // ==================== FuelSales methods ==================== //
 
@@ -334,54 +379,17 @@ func (db *MDB) fetchFuelSales(req *model.Request) (docs []model.StationSales, er
 		return nil, err
 	}
 
-	/**
-	 match := bson.M{
-		"$match": bson.M{"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd}},
-	}
-	group := bson.M{
-		"$group": bson.M{
-			"_id":       bson.M{"recordDate": "$recordDate", "stationID": "$stationID"},
-			"fuel1":     bson.M{"$sum": "$salesSummary.fuel.fuel_1.litre"},
-			"fuel2":     bson.M{"$sum": "$salesSummary.fuel.fuel_2.litre"},
-			"fuel3":     bson.M{"$sum": "$salesSummary.fuel.fuel_3.litre"},
-			"fuel4":     bson.M{"$sum": "$salesSummary.fuel.fuel_4.litre"},
-			"fuel5":     bson.M{"$sum": "$salesSummary.fuel.fuel_5.litre"},
-			"fuel6":     bson.M{"$sum": "$salesSummary.fuel.fuel_6.litre"},
-			"fuelCosts": bson.M{"$last": "$fuelCosts"},
-		},
-	}
-
-	project := bson.M{
-		"$project": bson.M{
-			"recordDate": "$_id.recordDate",
-			"stationID":  "$_id.stationID",
-			"fuel1":      1,
-			"fuel2":      1,
-			"fuel3":      1,
-			"fuel4":      1,
-			"fuel5":      1,
-			"fuel6":      1,
-			"fuelCosts":  1,
-		},
-	}
-
-	sort := bson.M{
-		"$sort": bson.M{"_id.recordDate": 1},
-	}
-	*/
-
 	return docs, err
 }
 
-/* func (db *DB) persistFuelSales(ss []*model.StationSales) (ts int64, err error) {
+func (db *MDB) persistFuelSales(docs []model.StationSales) (ts int64, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
-	col := s.DB(DBSales).C(colFSImport)
+	col := db.db.Collection(colFSImport)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	ts = time.Now().Unix()
-
-	for _, elem := range ss {
+	for _, elem := range docs {
 		fuelSplit := elem.Fuel2 / 2
 		rdte, _ := strconv.Atoi(elem.RecordDate.Format(timeShortForm))
 		fs := &model.FuelSales{
@@ -408,81 +416,239 @@ func (db *MDB) fetchFuelSales(req *model.Request) (docs []model.StationSales, er
 			StationID:  elem.StationID,
 			Status:     "imported",
 		}
-		if err := col.Insert(fsi); err != nil {
+
+		if _, err := col.InsertOne(ctx, fsi); err != nil {
 			return ts, err
 		}
 	}
+
 	return ts, err
 }
 
-func (db *DB) compileFuelSales() (err error) {
-
+func (db *MDB) compileFuelSales() (err error) {
 	// Get list of station nodes to later match with
 	nodes, err := db.fetchStationNodes()
 
-	s := db.getFreshSession()
-	defer s.Close()
-	colIm := s.DB(DBSales).C(colFSImport)
-	colEx := s.DB(DBSales).C(colFSExport)
+	colIm := db.db.Collection(colFSImport)
+	colEx := db.db.Collection(colFSExport)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 
 	for _, station := range nodes {
-		// found this explaining the $cond operator: https://github.com/go-mgo/mgo/issues/298
-		// also this, thou sure how successful: https://groups.google.com/forum/#!topic/mgo-users/yl0eIb0Wh-c
-		// also: https://stackoverflow.com/questions/40259171/mongo-aggregation-query-in-golang-with-mgo-driver
-		match := bson.M{
-			"$match": bson.M{"stationID": bson.M{"$in": station.Nodes}},
-		}
 
-		group := bson.M{
-			"$group": bson.M{
-				"_id": bson.M{"recordDate": "$recordDate", "importTS": "$importTS"},
-				"avgFuelCost": bson.M{
-					"$avg": bson.M{
-						"$cond": bson.M{
-							"if":   bson.M{"$gt": []interface{}{"$fuelCosts.fuel_1", 0}},
-							"then": "$fuelCosts.fuel_1",
-							"else": nil,
+		pipeline := mongo.Pipeline{
+			{
+				primitive.E{
+					Key: "$match",
+					Value: bson.D{
+						primitive.E{
+							Key: "stationID",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$in",
+									Value: station.Nodes,
+								},
+							},
 						},
 					},
 				},
-				"NL":   bson.M{"$sum": "$fuelSales.NL"},
-				"SNL":  bson.M{"$sum": "$fuelSales.SNL"},
-				"DSL":  bson.M{"$sum": "$fuelSales.DSL"},
-				"CDSL": bson.M{"$sum": "$fuelSales.CDSL"},
-				"PROP": bson.M{"$sum": "$fuelSales.PROP"},
 			},
-		}
-
-		project := bson.M{
-			"$project": bson.M{
-				"recordDate":  "$_id.recordDate",
-				"stationID":   station.ID,
-				"avgFuelCost": 1,
-				"importTS":    "$_id.importTS",
-				"fuelSales": bson.M{
-					"NL":   "$NL",
-					"SNL":  "$SNL",
-					"DSL":  "$DSL",
-					"CDSL": "$CDSL",
-					"PROP": "$PROP",
+			{
+				primitive.E{
+					Key: "$group",
+					Value: bson.D{
+						primitive.E{
+							Key: "_id",
+							Value: bson.D{
+								primitive.E{
+									Key:   "recordDate",
+									Value: "$recordDate",
+								},
+								primitive.E{
+									Key:   "importTS",
+									Value: "$importTS",
+								},
+							},
+						},
+						primitive.E{
+							Key: "avgFuelCost",
+							Value: bson.D{
+								primitive.E{
+									Key: "$avg",
+									Value: bson.D{
+										primitive.E{
+											Key: "$cond",
+											Value: bson.D{
+												primitive.E{
+													Key: "if",
+													Value: bson.D{
+														primitive.E{
+															Key:   "$gt",
+															Value: []interface{}{"$fuelCosts.fuel_1", 0},
+														},
+													},
+												},
+												primitive.E{
+													Key:   "then",
+													Value: "$fuelCosts.fuel_1",
+												},
+												primitive.E{
+													Key:   "else",
+													Value: nil,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						primitive.E{
+							Key: "NL",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$sum",
+									Value: "$fuelSales.NL",
+								},
+							},
+						},
+						primitive.E{
+							Key: "SNL",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$sum",
+									Value: "$fuelSales.SNL",
+								},
+							},
+						},
+						primitive.E{
+							Key: "DSL",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$sum",
+									Value: "$fuelSales.DSL",
+								},
+							},
+						},
+						primitive.E{
+							Key: "CDSL",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$sum",
+									Value: "$fuelSales.CDSL",
+								},
+							},
+						},
+						primitive.E{
+							Key: "PROP",
+							Value: bson.D{
+								primitive.E{
+									Key:   "$sum",
+									Value: "$fuelSales.PROP",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				primitive.E{
+					Key: "$project",
+					Value: bson.D{
+						primitive.E{
+							Key:   "recordDate",
+							Value: "$_id.recordDate",
+						},
+						primitive.E{
+							Key:   "stationID",
+							Value: station.ID,
+						},
+						primitive.E{
+							Key:   "avgFuelCost",
+							Value: 1,
+						},
+						primitive.E{
+							Key:   "importTS",
+							Value: "$_id.importTS",
+						},
+						primitive.E{
+							Key:   "_id",
+							Value: 0,
+						},
+						primitive.E{
+							Key: "fuelSales",
+							Value: bson.D{
+								primitive.E{
+									Key:   "NL",
+									Value: "$NL",
+								},
+								primitive.E{
+									Key:   "SNL",
+									Value: "$SNL",
+								},
+								primitive.E{
+									Key:   "DSL",
+									Value: "$DSL",
+								},
+								primitive.E{
+									Key:   "CDSL",
+									Value: "$CDSL",
+								},
+								primitive.E{
+									Key:   "PROP",
+									Value: "$PROP",
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				primitive.E{
+					Key: "$sort",
+					Value: bson.D{
+						primitive.E{
+							Key:   "recordDate",
+							Value: 1,
+						},
+					},
 				},
 			},
 		}
 
-		// Oddly, this is not sorting properly
-		sort := bson.M{
-			"$sort": bson.M{"_id.recordDate": 1},
+		cur, err := colIm.Aggregate(ctx, pipeline)
+		if err != nil {
+			return err
+		}
+		defer cur.Close(ctx)
+
+		var docs []model.FuelSalesExport
+		if err := cur.All(ctx, &docs); err != nil {
+			return err
 		}
 
-		var res []model.FuelSalesExport
-		pipe := colIm.Pipe([]bson.M{match, group, project, sort})
-		pipe.All(&res)
+		// now we can insert/update fuel export doc
+		opts := options.Update().SetUpsert(true)
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
 
-		for _, ex := range res {
-			ex.ID = strconv.Itoa(ex.RecordDate) + "-" + ex.StationID.Hex()
-			_, err = colEx.Upsert(bson.M{"_id": ex.ID}, ex)
+		for _, doc := range docs {
+			doc.ID = fmt.Sprintf("%s-%s", strconv.Itoa(doc.RecordDate), doc.StationID.Hex())
+
+			filter := bson.D{
+				primitive.E{
+					Key:   "_id",
+					Value: doc.ID,
+				},
+			}
+			update := bson.D{
+				primitive.E{
+					Key:   "$set",
+					Value: doc,
+				},
+			}
+			_, err := colEx.UpdateOne(ctx, filter, update, opts)
 			if err != nil {
-				log.Errorf("Error upserting fuel sale export %s", err)
+				log.Errorf("Error upserting fuel sale export. Error: %s", err)
 				break
 			}
 		}
@@ -491,17 +657,19 @@ func (db *DB) compileFuelSales() (err error) {
 	return err
 }
 
-func (db *DB) removeImportedFuelSales() (err error) {
+func (db *MDB) removeImportedFuelSales() (res *mongo.DeleteResult, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
+	col := db.db.Collection(colFSImport)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 
-	col := s.DB(DBSales).C(colFSImport)
-	_, err = col.RemoveAll(nil)
-	// fmt.Printf("RemoveAll info: %+v\n", info.Removed)
+	res, err = col.DeleteMany(ctx, bson.D{})
+	if err != nil {
+		return nil, err
+	}
 
-	return err
-} */
+	return res, err
+}
 
 // ==================== Propane methods ==================================== //
 
@@ -613,100 +781,88 @@ func (db *MDB) fetchPropaneSales(req *model.Request) (docs []model.PropaneSale, 
 		return nil, err
 	}
 
-	/*
-		col := s.DB(DBSales).C(colFuelSales)
-		match := bson.M{
-			"$match": bson.M{
-				"stationID":  bson.ObjectIdHex(config.PropaneStationID),
-				"recordDate": bson.M{"$gte": req.DateStart, "$lte": req.DateEnd},
-				"gradeID":    config.PropaneGradeID,
-			},
-		}
-		sort := bson.M{"$sort": bson.M{"recordDate": -1}}
-		group := bson.M{
-			"$group": bson.M{
-				"_id":    bson.M{"recordDate": "$recordDate", "dispenserID": "$dispenserID"},
-				"litres": bson.M{"$sum": "$litres.net"},
-			},
-		}
-
-		project := bson.M{
-			"$project": bson.M{
-				"recordDate":  "$_id.recordDate",
-				"dispenserID": "$_id.dispenserID",
-				"litres":      1,
-			},
-		}
-
-		pipe := col.Pipe([]bson.M{match, sort, group, project})
-		pipe.All(&docs) */
 	return docs, err
 }
 
-/* func (db *DB) persistPropaneSales(ps []*model.PropaneSale) (ts int64, err error) {
+func (db *MDB) persistPropaneSales(docs []model.PropaneSale) (ts int64, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
-	col := s.DB(DBSales).C(colPSExport)
+	col := db.db.Collection(colPSExport)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	ts = time.Now().Unix()
 
-	for _, elem := range ps {
-		rdte, _ := strconv.Atoi(elem.RecordDate.Format(timeShortForm))
+	for _, doc := range docs {
+		rdte, _ := strconv.Atoi(doc.RecordDate.Format(timeShortForm))
 		psi := &model.PropaneSaleExport{
 			ImportTS:   ts,
-			Litres:     elem.Litres,
+			Litres:     doc.Litres,
 			RecordDate: rdte,
-			TankID:     config.PropaneTankLookup(elem.DispenserID.Hex()),
+			TankID:     config.PropaneTankLookup(doc.DispenserID.Hex()),
 		}
-		if err := col.Insert(psi); err != nil {
+
+		if _, err := col.InsertOne(ctx, psi); err != nil {
 			return ts, err
 		}
 	}
 
 	return ts, err
-} */
+}
 
 // ==================== Fuel & Propane methods ============================= //
 
-/* func (db *DB) fetchStationNodes() (nodes []*model.StationNodes, err error) {
+func (db *MDB) fetchStationNodes() (nodes []model.StationNodes, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
+	col := db.db.Collection(colStationNodes)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
 
-	col := s.DB(DBSales).C(colStationNodes)
-	col.Find(bson.M{}).All(&nodes)
+	cur, err := col.Find(ctx, bson.D{})
+	if err != nil {
+		return nodes, err
+	}
+	defer cur.Close(ctx)
+
+	if err := cur.All(ctx, &nodes); err != nil {
+		return nodes, err
+	}
 
 	return nodes, err
 }
 
-func (db *DB) createImportLog(req *model.Request, ts int64) (err error) {
+func (db *MDB) createImportLog(req *model.Request, ts int64) (res *mongo.InsertOneResult, err error) {
 
-	s := db.getFreshSession()
-	defer s.Close()
-	col := s.DB(DBSales).C(colImportLog)
+	col := db.db.Collection(colImportLog)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	dteSt, _ := strconv.Atoi(req.DateStart.Format(timeShortForm))
 	dteEd, _ := strconv.Atoi(req.DateEnd.Format(timeShortForm))
 
-	ilog := &model.ImportLog{
+	importlog := &model.ImportLog{
 		DateFrom:   dteSt,
 		DateTo:     dteEd,
 		ImportTS:   ts,
 		ImportType: req.ExportType,
 	}
-	err = col.Insert(ilog)
 
-	return err
-} */
+	res, err = col.InsertOne(ctx, importlog)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, err
+}
 
 // ==================== DB Helper methods ==================== //
 
 // Close method
-/* func (db *DB) Close() {
-	db.session.Close()
-}
+func (db *MDB) Close() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.client.Disconnect(ctx); err != nil {
+		panic(err)
+	}
 
-func (db *DB) getFreshSession() *mgo.Session {
-	return db.session.Copy()
-} */
+	log.Println("MongoDB Disconnected")
+}
