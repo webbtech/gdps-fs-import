@@ -25,7 +25,7 @@ const (
 	ProdEnv  StageEnvironment = "prod"
 )
 
-const defaultFileName = "defaults.yaml"
+const defaultFileName = "defaults.yml"
 
 var (
 	defs = &defaults{}

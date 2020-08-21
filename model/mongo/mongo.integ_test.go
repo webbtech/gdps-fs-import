@@ -17,7 +17,7 @@ const (
 	// dateStart  = "2020-07-01"
 	dateEnd    = "2020-08-12"
 	dateStart  = "2020-08-09"
-	defaultsFP = "../../config/defaults.yaml"
+	defaultsFP = "../../config/defaults.yml"
 	timeForm   = "2006-01-02"
 )
 
