@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/pulpfree/gsales-fs-export/config"
 	"github.com/pulpfree/lambda-utils/tokenvalidator"
+	"github.com/thundra-io/thundra-lambda-agent-go/thundra"
 	// "github.com/thundra-io/thundra-lambda-agent-go/thundra"
 )
 

@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/pulpfree/gsales-fs-export/config"
-	"github.com/pulpfree/gsales-fs-export/pkgerrors"
+	"github.com/pulpfree/lambda-utils/pkgerrors"
 )
 
 // Response data format

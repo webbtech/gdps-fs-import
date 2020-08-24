@@ -1,7 +1,6 @@
 package jwk
 
 import (
-	"crypto"
 	"net/http"
 
 	"github.com/lestrrat-go/jwx/internal/option"
@@ -10,14 +9,13 @@ import (
 type Option = option.Interface
 
 const (
-	optkeyHTTPClient     = `http-client`
-	optkeyThumbprintHash = `thumbprint-hash`
+	optkeyHTTPClient = `http-client`
 )
 
-func WithHTTPClient(cl *http.Client) Option {
-	return option.New(optkeyHTTPClient, cl)
+type HTTPClient interface {
+	Get(string) (*http.Response, error)
 }
 
-func WithThumbprintHash(h crypto.Hash) Option {
-	return option.New(optkeyThumbprintHash, h)
+func WithHTTPClient(cl HTTPClient) Option {
+	return option.New(optkeyHTTPClient, cl)
 }
