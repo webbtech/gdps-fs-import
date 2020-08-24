@@ -16,7 +16,7 @@ build: clean
 	@for dir in `ls handler`; do \
 		GOOS=linux go build -o dist/$$dir github.com/pulpfree/gsales-fs-export/handler/$$dir; \
 	done
-	# @GOOS=linux go build -o dist/authorizer github.com/pulpfree/gsales-fs-export/authorizer;
+	@GOOS=linux go build -o dist/authorizer github.com/pulpfree/gsales-fs-export/authorizer;
 	@cp ./config/defaults.yml dist/
 	@echo "build successful"
 

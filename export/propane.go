@@ -14,11 +14,12 @@ import (
 func (e *Exporter) propane() (res *model.DnImportRes, err error) {
 
 	// Set MongoDB connection
-	mongo, err := mongo.NewDB(e.cfg.GetMongoConnectURL())
+	mongo, err := mongo.NewDB(e.cfg.GetMongoConnectURL(), e.cfg.MongoDBName)
 	if err != nil {
 		log.Errorf("Error connecting to mongo: %s", err)
 		return res, err
 	}
+	defer mongo.Close()
 
 	// Set DynamoDB connection
 	dynamo, err := dynamo.NewDB(e.cfg.Dynamo)
