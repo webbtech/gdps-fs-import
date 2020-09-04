@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/pulpfree/gales-fuelsale-export/model"
+	"github.com/pulpfree/gsales-fs-export/model"
 )
 
 // Time form constant

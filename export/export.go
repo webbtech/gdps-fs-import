@@ -1,8 +1,8 @@
 package export
 
 import (
-	"github.com/pulpfree/gales-fuelsale-export/config"
-	"github.com/pulpfree/gales-fuelsale-export/model"
+	"github.com/pulpfree/gsales-fs-export/config"
+	"github.com/pulpfree/gsales-fs-export/model"
 )
 
 const timeForm = "2006-01-02"

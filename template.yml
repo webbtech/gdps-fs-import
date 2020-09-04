@@ -5,46 +5,130 @@ Description: Gales Fuel Sales Export Service
 
 Parameters:
   IAMUsername:
-    Description: Name of the IAM user who will be the administrator of the KMS key
-      we create. This user will be able to encrypt values and manage the key.
+    Description: Username of the IAM user for this service
     Type: String
     Default: sysadmin
+  ParamCertificateArn:
+    Description: Domain Certificate Arn
+    Type: String
+  ParamCustomDomainName:
+    Description: Custom Domain Name
+    Type: String
+  ParamHostedZoneId:
+    Description: Hosted Zone ID
+    Type: String
+  ParamKMSKeyID:
+    Description: KMS key id
+    Type: String
+  ParamProjectName:
+    Description: Project name
+    Type: String
+  ParamSecurityGroupIds:
+    Description: SecurityGroupIds
+    ConstraintDescription: 'must be list of EC2 security group ids'
+    Type: 'List<AWS::EC2::SecurityGroup::Id>'
+  ParamSubnetIds:
+    Description: SecurityGroupIds
+    ConstraintDescription: 'must be list of EC2 subnet ids'
+    Type: 'List<AWS::EC2::Subnet::Id>'
 
 Resources:
-  #Functions
-  ExportFunction:
+  RestApi:
+    Type: AWS::Serverless::Api
+    DeletionPolicy: Delete
+    DependsOn: Lambda
+    Properties:
+      StageName: Prod
+      EndpointConfiguration: REGIONAL
+      Auth:
+        DefaultAuthorizer: LambdaTokenAuthorizer
+        Authorizers:
+          LambdaTokenAuthorizer:
+            FunctionArn: !GetAtt AuthLambda.Arn
+            Identity:
+              ReauthorizeEvery: 300
+              # ReauthorizeEvery: 1 # for testing
+
+      # Documentation for below: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#gateway-response-object
+      # Oddly, this property does not work with sam local
+      GatewayResponses:
+        UNAUTHORIZED:
+          StatusCode: 401
+          ResponseTemplates:
+            "application/json": '{ "message": $context.error.messageString }'
+          ResponseParameters:
+            Headers:
+              Access-Control-Expose-Headers: "'WWW-Authenticate'"
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'*'"
+
+      # Docs for this at: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#domain-configuration-object
+      Domain:
+        DomainName: !Ref ParamCustomDomainName
+        CertificateArn: !Ref ParamCertificateArn
+        EndpointConfiguration: "REGIONAL"
+        Route53:
+          HostedZoneId: !Ref ParamHostedZoneId
+          EvaluateTargetHealth: true
+          DistributionDomainName:
+            Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+  Lambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: go1.x
       CodeUri: ./dist
       Handler: /export
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-5afb2932
-          - sg-8f6baee7
-        SubnetIds:
-          - subnet-0da8d176
-          - subnet-7f092816
-      Timeout: 20
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 30
+      MemorySize: 512
       Environment:
         Variables:
           Stage: prod
+      VpcConfig:
+        SecurityGroupIds: !Ref ParamSecurityGroupIds
+        SubnetIds: !Ref ParamSubnetIds
+      Tags:
+        BillTo: 'Gales'
       Events:
-        Create:
-          Type: Api
-          Properties:
-            Path: /export
-            Method: post
         Ping:
           Type: Api
           Properties:
             Path: /export
-            Method: get
+            Method: GET
+            RestApiId: !Ref RestApi
+            Auth:
+              Authorizer: NONE
+        Create:
+          Type: Api
+          Properties:
+            Path: /export
+            Method: POST
+            RestApiId: !Ref RestApi
+            Auth:
+              Authorizer: LambdaTokenAuthorizer
+        Options:
+          Type: Api
+          Properties:
+            Path: /export
+            Method: OPTIONS
+            RestApiId: !Ref RestApi
+            Auth:
+              Authorizer: NONE
+        
+  AuthLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./dist
+      Handler: /authorizer
+      Runtime: go1.x
+      Role: !GetAtt AuthLambdaRole.Arn
+      Timeout: 10
+      MemorySize: 256
       Tags:
         BillTo: 'Gales'
 
-  LambdaExecutionRole:
+  LambdaRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -77,7 +161,8 @@ Resources:
             - dynamodb:PutItem
             - dynamodb:Query
             - dynamodb:Scan
-            Resource: "arn:aws:dynamodb:ca-central-1:407205661819:table/GDS_*"
+            Resource: 
+              Fn::Sub: "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/GDS_*"
       - PolicyName: FunctionLambdaVPCAccess
         PolicyDocument:
           Version: '2012-10-17'
@@ -96,7 +181,17 @@ Resources:
             Action:
             - ssm:GetParameter*
             Resource:
-              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/gales-dips2*
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/${ParamProjectName}*
+      - PolicyName: FunctionKMS
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - kms:DescribeKey
+            Resource:
+              Fn::Sub: arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${ParamKMSKeyID}
       - PolicyName: FunctionXRayAccess
         PolicyDocument:
           Version: '2012-10-17'
@@ -106,3 +201,76 @@ Resources:
             - xray:PutTraceSegments
             - xray:PutTelemetryRecords
             Resource: '*'
+
+  AuthLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Policies:
+      - PolicyName: FunctionParameterAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - ssm:GetParametersByPath
+            Resource:
+              Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/prod/${ParamProjectName}*
+      - PolicyName: FunctionKMS
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - kms:Decrypt
+            - kms:DescribeKey
+            Resource:
+              Fn::Sub: arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${ParamKMSKeyID}
+      - PolicyName: FunctionLogAccess
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: '*'
+
+Outputs:
+  ApiId:
+    Description: API ID
+    Value:
+      Ref: RestApi
+  ApiEndpoint:
+    Description: "API Prod stage endpoint"
+    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  ApiArn:
+    Description: "API ARN"
+    Value: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestApi}/"
+  ApiFQDN:
+    Description: "API Domain Name"
+    Value: !Ref ParamCustomDomainName
+  ApiURL:
+    Description: "API Url"
+    Value: !Sub "https://${ParamCustomDomainName}/report"
+  LambdaArn:
+    Description: "Lambda ARN"
+    Value: !GetAtt Lambda.Arn
+  AuthLambdaArn:
+    Description: "Authorizer Lambda ARN"
+    Value: !GetAtt AuthLambda.Arn
+  LambdaRoleArn:
+    Description: "Lambda Role ARN"
+    Value: !GetAtt LambdaRole.Arn
+  AuthLambdaRoleArn:
+    Description: "Authorizer Lambda Role ARN"
+    Value: !GetAtt AuthLambdaRole.Arn

@@ -1,68 +1,56 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
+	"time"
 
+	pres "github.com/pulpfree/lambda-go-proxy-response"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/pulpfree/gales-fuelsale-export/auth"
-	"github.com/pulpfree/gales-fuelsale-export/config"
-	"github.com/pulpfree/gales-fuelsale-export/export"
-	"github.com/pulpfree/gales-fuelsale-export/model"
-	"github.com/pulpfree/gales-fuelsale-export/validators"
+
+	"github.com/pulpfree/gsales-fs-export/config"
+	"github.com/pulpfree/gsales-fs-export/export"
+	"github.com/pulpfree/gsales-fs-export/model"
+	"github.com/pulpfree/gsales-fs-export/validators"
 )
 
 var cfg *config.Config
 
-const defaultsFilePath = "./defaults.yaml"
-
 func init() {
-	cfg = &config.Config{
-		DefaultsFilePath: defaultsFilePath,
-	}
+	cfg = &config.Config{}
 	err := cfg.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func handleRequest(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+// HandleRequest function
+// NOTE: strange, the error parameter cannot be used or removed... would be good to dig into
+func HandleRequest(req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
-	var err error
-	var eRes string
+	hdrs := make(map[string]string)
+	hdrs["Content-Type"] = "application/json"
+	hdrs["Access-Control-Allow-Origin"] = "*"
+	hdrs["Access-Control-Allow-Methods"] = "GET,OPTIONS,POST,PUT"
+	hdrs["Access-Control-Allow-Headers"] = "Authorization,Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+
+	if req.HTTPMethod == "OPTIONS" {
+		return events.APIGatewayProxyResponse{Body: string("null"), Headers: hdrs, StatusCode: 200}, nil
+	}
+
+	t := time.Now()
 
 	// If this is a ping test, intercept and return
 	if req.HTTPMethod == "GET" {
 		log.Info("Ping test in handleRequest")
-		return events.APIGatewayProxyResponse{Body: "pong", StatusCode: 200}, nil
-	}
-
-	// Check for auth header
-	if req.Headers["Authorization"] == "" {
-		eRes = setErrorResponse(401, "Unauthorized", "Missing Authorization header")
-		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 401}, nil
-	}
-
-	// Set auth config
-	auth, err := auth.New(&auth.Config{
-		ClientID:       cfg.CognitoClientID,
-		PoolID:         cfg.CognitoPoolID,
-		Region:         cfg.CognitoRegion,
-		JwtAccessToken: req.Headers["Authorization"],
-	})
-	if err != nil {
-		eRes = setErrorResponse(500, "Authentication", err.Error())
-		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 500}, nil
-	}
-
-	// Validate JWT Token
-	err = auth.Validate()
-	if err != nil {
-		eRes = setErrorResponse(401, "Authentication", err.Error())
-		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 401}, nil
+		return pres.ProxyRes(pres.Response{
+			Code:      200,
+			Data:      "pong",
+			Status:    "success",
+			Timestamp: t.Unix(),
+		}, hdrs, nil), nil
 	}
 
 	var r *model.RequestInput
@@ -71,43 +59,37 @@ func handleRequest(ctx context.Context, req events.APIGatewayProxyRequest) (even
 	// Validate request params
 	reqVars, err := validators.RequestVars(r)
 	if err != nil {
-		eRes = setErrorResponse(500, "RequestValidation", err.Error())
-		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 500}, nil
+		log.Errorf("err in validators.RequestVars: %+v with input of: %+v\n", err, r)
+		return pres.ProxyRes(pres.Response{
+			Timestamp: t.Unix(),
+		}, hdrs, err), nil
 	}
 
 	// Initialize and process request
 	exporter := export.New(reqVars, cfg)
 	res, err := exporter.Process()
 	if err != nil {
-		eRes = setErrorResponse(500, "ProcessExport", err.Error())
-		return events.APIGatewayProxyResponse{Body: err.Error(), StatusCode: 500}, nil
+		return pres.ProxyRes(pres.Response{
+			Timestamp: t.Unix(),
+		}, hdrs, err), nil
 	}
 	log.Infof("res in exporter.Process(): %+v\n", res)
 
 	body, err := json.Marshal(&res)
 	if err != nil {
-		eRes = setErrorResponse(500, "ProcessExport", "Unable to marshal JSON")
-		return events.APIGatewayProxyResponse{Body: eRes, StatusCode: 500}, nil
+		return pres.ProxyRes(pres.Response{
+			Timestamp: t.Unix(),
+		}, hdrs, err), nil
 	}
 
-	return events.APIGatewayProxyResponse{Body: string(body), StatusCode: 201}, nil
+	return pres.ProxyRes(pres.Response{
+		Code:      201,
+		Data:      body,
+		Status:    "success",
+		Timestamp: t.Unix(),
+	}, hdrs, nil), nil
 }
 
 func main() {
-	lambda.Start(handleRequest)
-}
-
-// ======================== Helper Function ================================= //
-
-func setErrorResponse(status int, errType, message string) string {
-
-	err := model.ErrorResponse{
-		Status:  status,
-		Type:    errType,
-		Message: message,
-	}
-	log.Errorf("Error: status: %d, type: %s, message: %s", err.Status, err.Type, err.Message)
-	res, _ := json.Marshal(&err)
-
-	return string(res)
+	lambda.Start(HandleRequest)
 }
