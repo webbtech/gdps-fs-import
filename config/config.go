@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,44 +14,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-// Config struct
-type Config struct {
-	config
-	DefaultsFilePath string
-}
-
-// defaults struct
-type defaults struct {
-	AWSRegion       string  `yaml:"AWSRegion"`
-	CognitoClientID string  `yaml:"CognitoClientID"`
-	CognitoPoolID   string  `yaml:"CognitoPoolID"`
-	CognitoRegion   string  `yaml:"CognitoRegion"`
-	Dynamo          *Dynamo `yaml:"Dynamo"`
-	MongoDBHost     string  `yaml:"MongoDBHost"`
-	MongoDBName     string  `yaml:"MongoDBName"`
-	MongoDBPassword string  `yaml:"MongoDBPassword"`
-	MongoDBUser     string  `yaml:"MongoDBUser"`
-	SsmPath         string  `yaml:"SsmPath"`
-	Stage           string  `yaml:"Stage"`
-}
-
-type config struct {
-	AWSRegion         string
-	CognitoClientID   string
-	CognitoPoolID     string
-	CognitoRegion     string
-	Dynamo            *Dynamo
-	MongoDBConnectURL string
-	Stage             StageEnvironment
-}
-
-// Dynamo struct
-type Dynamo struct {
-	APIVersion string `yaml:"APIVersion"`
-	Endpoint   string `yaml:"Endpoint"`
-	Region     string `yaml:"Region"`
-}
-
 // StageEnvironment string
 type StageEnvironment string
 
@@ -64,7 +25,7 @@ const (
 	ProdEnv  StageEnvironment = "prod"
 )
 
-const defaultFileName = "defaults.yaml"
+const defaultFileName = "defaults.yml"
 
 var (
 	defs = &defaults{}
@@ -150,7 +111,7 @@ func (c *Config) validateStage() error {
 	}
 
 	if !validEnv {
-		return errors.New("Invalid Stage type")
+		return fmt.Errorf("Invalid Stage type: %s", defs.Stage)
 	}
 
 	return nil
@@ -200,7 +161,8 @@ func (c *Config) setSSMParams() (err error) {
 
 	paramLen := len(res.Parameters)
 	if paramLen == 0 {
-		err = fmt.Errorf("Error fetching ssm params, total number found: %d", paramLen)
+		// err = fmt.Errorf("Error fetching ssm params, total number found: %d", paramLen)
+		return nil
 	}
 
 	// Get struct keys so we can test before attempting to set
@@ -245,6 +207,8 @@ func (c *Config) setFinal() (err error) {
 	c.CognitoPoolID = defs.CognitoPoolID
 	c.CognitoRegion = defs.CognitoRegion
 	c.Dynamo = defs.Dynamo
+	c.MongoDBName = defs.MongoDBName
+
 	err = c.validateStage()
 
 	return err

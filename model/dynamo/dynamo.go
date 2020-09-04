@@ -12,8 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
-	"github.com/pulpfree/gales-fuelsale-export/config"
-	"github.com/pulpfree/gales-fuelsale-export/model"
+	"github.com/pulpfree/gsales-fs-export/config"
+	"github.com/pulpfree/gsales-fs-export/model"
 )
 
 // Dynamo struct

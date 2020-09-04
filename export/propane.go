@@ -6,19 +6,20 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/pulpfree/gales-fuelsale-export/model"
-	"github.com/pulpfree/gales-fuelsale-export/model/dynamo"
-	"github.com/pulpfree/gales-fuelsale-export/model/mongo"
+	"github.com/pulpfree/gsales-fs-export/model"
+	"github.com/pulpfree/gsales-fs-export/model/dynamo"
+	"github.com/pulpfree/gsales-fs-export/model/mongo"
 )
 
 func (e *Exporter) propane() (res *model.DnImportRes, err error) {
 
 	// Set MongoDB connection
-	mongo, err := mongo.NewDB(e.cfg.GetMongoConnectURL())
+	mongo, err := mongo.NewDB(e.cfg.GetMongoConnectURL(), e.cfg.MongoDBName)
 	if err != nil {
 		log.Errorf("Error connecting to mongo: %s", err)
 		return res, err
 	}
+	defer mongo.Close()
 
 	// Set DynamoDB connection
 	dynamo, err := dynamo.NewDB(e.cfg.Dynamo)
