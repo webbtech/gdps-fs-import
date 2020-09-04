@@ -6,8 +6,6 @@ AWS_STACK_NAME ?= $(PROJECT_NAME)
 
 default: build awspackage awsdeploy
 
-# deploy: build
-
 clean:
 	@rm -rf dist
 	@mkdir -p dist
@@ -34,12 +32,12 @@ validate:
 
 awspackage:
 	aws cloudformation package \
-   --template-file ${FILE_TEMPLATE} \
-   --output-template-file ${FILE_PACKAGE} \
-   --s3-bucket $(AWS_LAMBDA_BUCKET) \
-   --s3-prefix $(AWS_BUCKET_PREFIX) \
-   --profile $(AWS_PROFILE) \
-   --region $(AWS_REGION)
+  --template-file ${FILE_TEMPLATE} \
+  --output-template-file ${FILE_PACKAGE} \
+  --s3-bucket $(AWS_LAMBDA_BUCKET) \
+  --s3-prefix $(AWS_BUCKET_PREFIX) \
+  --profile $(AWS_PROFILE) \
+  --region $(AWS_REGION)
 
 awsdeploy:
 	aws cloudformation deploy \
@@ -48,7 +46,6 @@ awsdeploy:
   --stack-name $(AWS_STACK_NAME) \
   --capabilities CAPABILITY_IAM \
   --profile $(AWS_PROFILE) \
-	--force-upload \
 	--parameter-overrides \
 		ParamCertificateArn=$(CERTIFICATE_ARN) \
 		ParamCustomDomainName=$(CUSTOM_DOMAIN_NAME) \

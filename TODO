@@ -1,0 +1,4 @@
+
+Todo:
+  ✔ Remove old cloudformation named: gales-fuelsale-export @done(20-08-26 13:49)
+  ✔ Remove cloudformation named: gales-fuelSale-lambda <- check first to see if this is used anywhere @done(20-08-26 13:49)

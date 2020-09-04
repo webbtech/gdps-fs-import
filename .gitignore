@@ -19,6 +19,6 @@ vendor/
 .env
 dist/
 docs/ssm.md
-tmp
-scratch
 package.yml
+scratch
+tmp
