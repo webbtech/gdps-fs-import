@@ -31,7 +31,7 @@ validate:
 	sam validate
 
 awspackage:
-	aws cloudformation package \
+	@aws cloudformation package \
   --template-file ${FILE_TEMPLATE} \
   --output-template-file ${FILE_PACKAGE} \
   --s3-bucket $(AWS_LAMBDA_BUCKET) \
@@ -40,7 +40,7 @@ awspackage:
   --region $(AWS_REGION)
 
 awsdeploy:
-	aws cloudformation deploy \
+	@aws cloudformation deploy \
   --template-file ${FILE_PACKAGE} \
 	--region $(AWS_REGION) \
   --stack-name $(AWS_STACK_NAME) \
@@ -52,7 +52,9 @@ awsdeploy:
 		ParamHostedZoneId=$(HOSTED_ZONE_ID) \
 		ParamKMSKeyID=$(KMS_KEY_ID) \
 		ParamProjectName=$(PROJECT_NAME) \
-		ParamReportBucket=${AWS_REPORT_BUCKET}
+		ParamReportBucket=${AWS_REPORT_BUCKET} \
+		ParamSecurityGroupIds=$(SECURITY_GROUP_IDS) \
+		ParamSubnetIds=$(SUBNET_IDS)
 
 describe:
 	@aws cloudformation describe-stacks \
