@@ -41,7 +41,7 @@ func (suite *IntegSuite) TestSetEnvVars() {
 	// Change a var
 	os.Setenv("Stage", "noexist")
 	err = suite.cfg.setEnvVars()
-	suite.EqualError(err, "Invalid Stage type: noexist")
+	suite.EqualError(err, "Invalid StageEnvironment requested: noexist")
 
 	// Reset to valid stage
 	os.Setenv("Stage", "test")
@@ -65,8 +65,6 @@ func (suite *IntegSuite) TestSetSSMParams() {
 	// CognitoClientIDBefore := defs.CognitoClientID
 	err := suite.cfg.setSSMParams()
 	suite.NoError(err)
-
-	suite.True(defs.MongoDBPassword != "")
 
 	// Reset to test stage
 	os.Setenv("Stage", "test")

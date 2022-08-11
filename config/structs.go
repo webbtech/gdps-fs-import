@@ -8,24 +8,16 @@ type Config struct {
 
 // defaults struct
 type defaults struct {
-	AWSRegion       string  `yaml:"AWSRegion"`
-	CognitoClientID string  `yaml:"CognitoClientID"`
-	CognitoPoolID   string  `yaml:"CognitoPoolID"`
-	CognitoRegion   string  `yaml:"CognitoRegion"`
-	Dynamo          *Dynamo `yaml:"Dynamo"`
-	MongoDBHost     string  `yaml:"MongoDBHost"`
-	MongoDBName     string  `yaml:"MongoDBName"`
-	MongoDBPassword string  `yaml:"MongoDBPassword"`
-	MongoDBUser     string  `yaml:"MongoDBUser"`
-	SsmPath         string  `yaml:"SsmPath"`
-	Stage           string  `yaml:"Stage"`
+	AWSRegion   string  `yaml:"AWSRegion"`
+	Dynamo      *Dynamo `yaml:"Dynamo"`
+	MongoDBHost string  `yaml:"MongoDBHost"`
+	MongoDBName string  `yaml:"MongoDBName"`
+	SsmPath     string  `yaml:"SsmPath"`
+	Stage       string  `yaml:"Stage"`
 }
 
 type config struct {
 	AWSRegion         string
-	CognitoClientID   string
-	CognitoPoolID     string
-	CognitoRegion     string
 	Dynamo            *Dynamo
 	MongoDBConnectURL string
 	MongoDBName       string
