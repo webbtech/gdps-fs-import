@@ -1,13 +1,8 @@
 AWSRegion: "ca-central-1"
-CognitoClientID: "clientIDabc123"
-CognitoPoolID: ""
-CognitoRegion: ""
-MongoDBUser: ""
-MongoDBPassword: ""
 MongoDBHost: 192.168.86.137
 MongoDBName: "gales-sales"
 S3Bucket: ""
-SsmPath: "gsales-fs-export"
+SsmPath: "gdps-fs-import"
 Stage: "prod"
 Dynamo:
   APIVersion: "2012-08-10"
