@@ -15,8 +15,8 @@ import (
 const (
 	// dateEnd    = "2020-07-05"
 	// dateStart  = "2020-07-01"
-	dateEnd    = "2020-08-12"
-	dateStart  = "2020-08-09"
+	dateEnd    = "2023-06-30"
+	dateStart  = "2023-06-06"
 	defaultsFP = "../../config/defaults.yml"
 	timeForm   = "2006-01-02"
 )
@@ -63,7 +63,7 @@ func (s *IntegSuite) SetupTest() {
 	propTestVars := &model.RequestInput{
 		DateStart:  dateStart,
 		DateEnd:    dateEnd,
-		ExportType: "fuel",
+		ExportType: "propane",
 	}
 	s.propReq, err = validators.RequestVars(propTestVars)
 	if err != nil {
